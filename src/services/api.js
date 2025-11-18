@@ -1,16 +1,19 @@
 import axios from 'axios';
 
-// ✅ Use environment variable
+// ✅ Improved API configuration
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
-console.log('API Base URL:', API_BASE_URL); // Debug log
+console.log('🌐 API Base URL:', API_BASE_URL);
+console.log('🌍 Current Environment:', process.env.NODE_ENV);
 
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
   },
-  timeout: 10000 // 10 second timeout
+  timeout: 15000, // 15 second timeout for mobile networks
+  withCredentials: true // Important for CORS
 });
 
 // Request Interceptor
@@ -19,27 +22,44 @@ api.interceptors.request.use(
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      console.log('✅ Token attached to request');
     }
+
+    console.log(`📤 Request: ${config.method.toUpperCase()} ${config.url}`);
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => {
+    console.error('❌ Request Error:', error);
+    return Promise.reject(error);
+  }
 );
 
 // Response Interceptor
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log(`📥 Response: ${response.status} ${response.config.url}`);
+    return response;
+  },
   (error) => {
+    console.error('❌ Response Error:', error);
+
+    if (error.response) {
+      console.error('Status:', error.response.status);
+      console.error('Data:', error.response.data);
+    } else if (error.request) {
+      console.error('No response received. Network error?');
+      console.error('Request:', error.request);
+    } else {
+      console.error('Error message:', error.message);
+    }
+
+    // Redirect to login on 401
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
     }
-    
-    // Log errors in development
-    if (process.env.NODE_ENV === 'development') {
-      console.error('API Error:', error.response?.data || error.message);
-    }
-    
+
     return Promise.reject(error);
   }
 );
